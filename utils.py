@@ -9,6 +9,7 @@ from albumentations.pytorch import ToTensorV2
 import os
 import numpy as np
 from torch_lr_finder import LRFinder
+from torch.optim.lr_scheduler import OneCycleLR
 
 
 train_transforms = A.Compose([
@@ -27,9 +28,36 @@ test_transforms = A.Compose([
                              A.Normalize (mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010]),
                              ToTensorV2()
 
+class Cifar10SearchDataset(datasets.CIFAR10):
+    def __init__(self, root="~/data", train=True, download=True, transform=None):
+        super().__init__(root=root, train=train, download=download, transform=transform)
+    def __getitem__(self, index):
+        image, label = self.data[index], self.targets[index]
+        if self.transform is not None:
+            transformed = self.transform(image=image)
+            image = transformed["image"]
+        return image, label
 
+classes = ('plane', 'car', 'bird', 'cat', 'deer','dog', 'frog', 'horse', 'ship', 'truck')
 # Model Scheduler
 model = resnet().to(device)
 optimizer=optim.Adam(model.parameters(),lr=0.03,weight_decay=1e-4)
 criterion = nn.CrossEntropyLoss()
 Lr_Finder=LRFinder(model,optimizer,criterion,device='cuda')
+
+
+
+model = resnet().to(device)
+optimizer = optim.Adam(model.parameters(), lr=0.01)
+criterion = nn.CrossEntropyLoss()
+EPOCHS = 20
+
+scheduler = OneCycleLR(optimizer,
+                       max_lr=5.70E-02,
+                       steps_per_epoch=len(train_loader),
+                       epochs=EPOCHS,
+                       pct_start=5/EPOCHS,
+                       div_factor=100,
+                       three_phase=False,
+                       final_div_factor=100,
+                       anneal_strategy='linear')
