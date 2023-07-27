@@ -12,44 +12,23 @@ import os
 import argparse
 
 from models import *
-from utils import progress_bar
+from utils import train_transforms,test_transforms,Cifar10SearchDataset
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-best_acc = 0  # best test accuracy
-start_epoch = 0  # start from epoch 0 or last checkpoint epoch
+
 
 # Data
 print('==> Preparing data..')
-train_transforms = A.Compose([
-    A.Normalize (mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010]),
-    A.PadIfNeeded(min_height=40, min_width=40, always_apply=True,p=0.5),
-    A.RandomCrop(height=32, width=32, always_apply=True,p=0.5,),
-    A.CoarseDropout(max_holes=1, max_height=8, max_width=8, fill_value=0, mask_fill_value=None, always_apply=False, p=0.5),
-    ToTensorV2()
-])
-
-#Test Phase transformations
-test_transforms = A.Compose([A.Normalize (mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010]),
-                             ToTensorV2()
-                                       ])
-
-class Cifar10SearchDataset(datasets.CIFAR10):
-    def __init__(self, root="~/data", train=True, download=True, transform=None):
-        super().__init__(root=root, train=train, download=download, transform=transform)
-    def __getitem__(self, index):
-        image, label = self.data[index], self.targets[index]
-        if self.transform is not None:
-            transformed = self.transform(image=image)
-            image = transformed["image"]
-        return image, label
 
 # Defining the train and test data
 train = Cifar10SearchDataset(root='./data', train=True,download=True, transform=train_transforms)
 test = Cifar10SearchDataset(root='./data', train=False,download=True, transform=test_transforms)
-classes = ('plane', 'car', 'bird', 'cat', 'deer','dog', 'frog', 'horse', 'ship', 'truck')
 
-
-
+# Defining Train and Test Loader
+print ("Preparing train and test loader =>")
+dataloader_args = dict(shuffle=True, batch_size=512, num_workers=0, pin_memory=True) if cuda else dict(shuffle=True, batch_size=64)
+train_loader = torch.utils.data.DataLoader(train, **dataloader_args)
+test_loader = torch.utils.data.DataLoader(test, **dataloader_args)
 
 train_losses = []
 test_losses = []
@@ -120,3 +99,8 @@ def test(model, device, test_loader):
     
 
 
+for epoch in range(EPOCHS):
+    print("EPOCH:", epoch)
+    train(model, device, train_loader, optimizer, criterion)
+    test(model, device, test_loader)
+    scheduler.step()
