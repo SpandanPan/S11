@@ -65,11 +65,7 @@ test_loader = torch.utils.data.DataLoader(test_data, **dataloader_args)
 
 
 classes = ('plane', 'car', 'bird', 'cat', 'deer','dog', 'frog', 'horse', 'ship', 'truck')
-# Model Scheduler
-#model = ResNet18().to(device)
-#optimizer=optim.Adam(model.parameters(),lr=0.03,weight_decay=1e-4)
-#criterion = nn.CrossEntropyLoss()
-#Lr_Finder=LRFinder(model,optimizer,criterion,device='cuda')
+
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 model = ResNet18().to(device)
@@ -144,12 +140,12 @@ def test(model, device, test_loader):
         100. * correct / 512))
 
 from torch.optim.lr_scheduler import OneCycleLR
-EPOCHS=5
+EPOCHS=20
 scheduler = OneCycleLR(optimizer,
                        max_lr=5.70E-02,
                        steps_per_epoch=512,
                        epochs=EPOCHS,
-                       pct_start=2/EPOCHS,
+                       pct_start=5/EPOCHS,
                        div_factor=100,
                        three_phase=False,
                        final_div_factor=100,
