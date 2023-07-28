@@ -10,7 +10,7 @@ import os
 import numpy as np
 from torch_lr_finder import LRFinder
 from torch.optim.lr_scheduler import OneCycleLR
-
+from Models import resnet
 
 train_transforms = A.Compose([
     A.Normalize (mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010]),
@@ -40,16 +40,14 @@ class Cifar10SearchDataset(datasets.CIFAR10):
 
 classes = ('plane', 'car', 'bird', 'cat', 'deer','dog', 'frog', 'horse', 'ship', 'truck')
 # Model Scheduler
-model = resnet().to(device)
+model = resnet.ResNet18().to(device)
 optimizer=optim.Adam(model.parameters(),lr=0.03,weight_decay=1e-4)
 criterion = nn.CrossEntropyLoss()
 Lr_Finder=LRFinder(model,optimizer,criterion,device='cuda')
 
-
-
-model = resnet().to(device)
-optimizer = optim.Adam(model.parameters(), lr=0.01)
-criterion = nn.CrossEntropyLoss()
+#model = resnet().to(device)
+#optimizer = optim.Adam(model.parameters(), lr=0.01)
+#criterion = nn.CrossEntropyLoss()
 EPOCHS = 20
 
 scheduler = OneCycleLR(optimizer,
