@@ -2,16 +2,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-import torch.backends.cudnn as cudnn
-
 import torchvision
 import torchvision.transforms as transforms
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-import os
-import argparse
-
-from models import *
+from Models import resnet
 from utils import train_transforms,test_transforms,Cifar10SearchDataset
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
