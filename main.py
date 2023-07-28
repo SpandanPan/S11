@@ -8,7 +8,7 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from torchsummary import summary
 from Models.resnet import ResNet18
-from utils import train_transforms,test_transforms,Cifar10SearchDataset,scheduler,grayscale_cam,invTrans,misclassified_image,train,test
+from utils import train_transforms,test_transforms,Cifar10SearchDataset,scheduler,grad_cam,invTrans,misclassified_image,train,test
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -77,6 +77,7 @@ for i in range(10):
 
 
 # Plotting grad cam for misclassified images
+grayscale_cam = grad_cam(model)
 for i in range(10):
   img_req=img_tensor[i].to(device)
   inv_tensor = invTrans(img_req)
