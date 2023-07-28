@@ -7,7 +7,8 @@ import torchvision.transforms as transforms
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from torchsummary import summary
-from Models.resnet import ResNet18
+import matplotlib.pyplot as plt
+from resnet import ResNet18
 from utils import train_transforms,test_transforms,Cifar10SearchDataset,scheduler,grad_cam,invTrans,misclassified_image,train,test
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -17,9 +18,9 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('==> Preparing data..')
 
 # Defining the train and test data
-train_data = Cifar10SearchDataset(root='./data', train=True,download=True, transform=train_transforms)
-test_data = Cifar10SearchDataset(root='./data', train=False,download=True, transform=test_transforms)
-
+#train_data = Cifar10SearchDataset(root='./data', train=True,download=True, transform=train_transforms)
+#test_data = Cifar10SearchDataset(root='./data', train=False,download=True, transform=test_transforms)
+from utils import train_data,test_data,train_loader,test_loader
 
 # Device
 SEED = 1
@@ -30,15 +31,6 @@ torch.manual_seed(SEED)
 if cuda:
     torch.cuda.manual_seed(SEED)
 
-
-# Defining Train and Test Loader
-dataloader_args = dict(shuffle=True, batch_size=512, num_workers=0, pin_memory=True) if cuda else dict(shuffle=True, batch_size=64)
-
-# train dataloader
-train_loader = torch.utils.data.DataLoader(train_data, **dataloader_args)
-# test dataloader
-test_loader = torch.utils.data.DataLoader(test_data, **dataloader_args)
-
 # Model Summary 
 
 use_cuda = torch.cuda.is_available()
@@ -47,7 +39,7 @@ model = ResNet18().to(device)
 print(summary(model, input_size=(3, 32, 32)))
 
 # Model Training
-EPOCHS=20
+EPOCHS=5
 model = ResNet18().to(device)
 optimizer=optim.Adam(model.parameters(),lr=0.03,weight_decay=1e-4)
 criterion = nn.CrossEntropyLoss()
@@ -59,11 +51,18 @@ for epoch in range(EPOCHS):
 
 # Plot train/test loss and accuracy
 fig, axs = plt.subplots(2,2, figsize=(20,15))
+from utils import train_losses,test_losses,train_acc,test_acc
+fig, axs = plt.subplots(2,2, figsize=(25,20))
 
 axs[0,0].set_title('Train Losses')
+axs[0,1].set_title('Training Accuracy')
 axs[1,0].set_title('Test Losses')
+axs[1,1].set_title('Test Accuracy')
+
 axs[0,0].plot(train_losses)
+axs[0,1].plot(train_acc)
 axs[1,0].plot(test_losses)
+axs[1,1].plot(test_acc)
 
 # Plotting wrong predictions
 img_lst,img_tensor,cat_lst = misclassified_image(test_loader,device,model,train_data)
