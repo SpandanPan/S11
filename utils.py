@@ -174,3 +174,11 @@ invTrans = transforms.Compose([ transforms.Normalize(mean = [ 0., 0., 0. ],
                                                      std = [ 1., 1., 1. ]),
                                ])
 
+def grad_cam(model):
+    target_layers = [model.layer4[-1]]
+    placeholder=torch.zeros(size=(3,3,32,32))
+    input_tensor=placeholder.cuda()
+    cam = GradCAM(model=model, target_layers=target_layers)
+    grayscale_cam = cam(input_tensor=input_tensor, targets=None)
+    grayscale_cam = grayscale_cam[0,:]
+    return grayscale_cam
