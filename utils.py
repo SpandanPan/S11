@@ -12,7 +12,7 @@ from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from tqdm import tqdm
-from resnet import ResNet18
+from Models.resnet import ResNet18
 
 # Defining the train and test data
 train_transforms = A.Compose([
