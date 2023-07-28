@@ -11,9 +11,10 @@ from torch.optim.lr_scheduler import OneCycleLR
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
+from tqdm import tqdm
+from resnet import ResNet18
 
-from Models.resnet import ResNet18
-
+# Defining the train and test data
 train_transforms = A.Compose([
     A.Normalize (mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010]),
     A.PadIfNeeded(min_height=48, min_width=48, always_apply=True,p=0.5),
@@ -25,7 +26,9 @@ train_transforms = A.Compose([
 #Test Phase transformations
 test_transforms = A.Compose([
                              A.Normalize (mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010]),
-                             ToTensorV2()
+                             ToTensorV2()])
+
+
 
 class Cifar10SearchDataset(datasets.CIFAR10):
     def __init__(self, root="~/data", train=True, download=True, transform=None):
@@ -37,28 +40,41 @@ class Cifar10SearchDataset(datasets.CIFAR10):
             image = transformed["image"]
         return image, label
 
+train_data = Cifar10SearchDataset(root='./data', train=True,download=True, transform=train_transforms)
+test_data = Cifar10SearchDataset(root='./data', train=False,download=True, transform=test_transforms)
+
+
+# Device
+SEED = 1
+cuda = torch.cuda.is_available()
+print("CUDA Available?", cuda)
+torch.manual_seed(SEED)
+
+if cuda:
+    torch.cuda.manual_seed(SEED)
+
+
+# Defining Train and Test Loader
+dataloader_args = dict(shuffle=True, batch_size=512, num_workers=0, pin_memory=True) if cuda else dict(shuffle=True, batch_size=64)
+
+# train dataloader
+train_loader = torch.utils.data.DataLoader(train_data, **dataloader_args)
+# test dataloader
+test_loader = torch.utils.data.DataLoader(test_data, **dataloader_args)
+
+
+
 classes = ('plane', 'car', 'bird', 'cat', 'deer','dog', 'frog', 'horse', 'ship', 'truck')
 # Model Scheduler
-model = resnet.ResNet18().to(device)
-optimizer=optim.Adam(model.parameters(),lr=0.03,weight_decay=1e-4)
-criterion = nn.CrossEntropyLoss()
-Lr_Finder=LRFinder(model,optimizer,criterion,device='cuda')
-
-#model = resnet().to(device)
-#optimizer = optim.Adam(model.parameters(), lr=0.01)
+#model = ResNet18().to(device)
+#optimizer=optim.Adam(model.parameters(),lr=0.03,weight_decay=1e-4)
 #criterion = nn.CrossEntropyLoss()
-EPOCHS = 20
-
-scheduler = OneCycleLR(optimizer,
-                       max_lr=5.70E-02,
-                       steps_per_epoch=len(train_loader),
-                       epochs=EPOCHS,
-                       pct_start=5/EPOCHS,
-                       div_factor=100,
-                       three_phase=False,
-                       final_div_factor=100,
-                       anneal_strategy='linear')
-
+#Lr_Finder=LRFinder(model,optimizer,criterion,device='cuda')
+use_cuda = torch.cuda.is_available()
+device = torch.device("cuda" if use_cuda else "cpu")
+model = ResNet18().to(device)
+optimizer = optim.Adam(model.parameters(), lr=0.01)
+#criterion = nn.CrossEntropyLoss()
 
 # Define test and train functions
 
@@ -124,21 +140,20 @@ def test(model, device, test_loader):
     test_losses.append(test_loss)
 
     print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
-        test_loss, correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)))
+        test_loss, correct,512,
+        100. * correct / 512))
 
 from torch.optim.lr_scheduler import OneCycleLR
-EPOCHS=20
+EPOCHS=5
 scheduler = OneCycleLR(optimizer,
-                       max_lr=2.47E-02,
-                       steps_per_epoch=len(train_loader),
+                       max_lr=5.70E-02,
+                       steps_per_epoch=512,
                        epochs=EPOCHS,
-                       pct_start=5/EPOCHS,
+                       pct_start=2/EPOCHS,
                        div_factor=100,
                        three_phase=False,
                        final_div_factor=100,
                        anneal_strategy='linear')
-
 
 def misclassified_image(test_loader,device,model,train_data):
 
