@@ -6,8 +6,9 @@ import torchvision
 import torchvision.transforms as transforms
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-from Models import resnet
-from utils import train_transforms,test_transforms,Cifar10SearchDataset
+from torchsummary import summary
+from Models.resnet import ResNet18
+from utils import train_transforms,test_transforms,Cifar10SearchDataset,scheduler,grayscale_cam,invTrans,misclassified_image
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -16,86 +17,74 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('==> Preparing data..')
 
 # Defining the train and test data
-train = Cifar10SearchDataset(root='./data', train=True,download=True, transform=train_transforms)
-test = Cifar10SearchDataset(root='./data', train=False,download=True, transform=test_transforms)
+train_data = Cifar10SearchDataset(root='./data', train=True,download=True, transform=train_transforms)
+test_data = Cifar10SearchDataset(root='./data', train=False,download=True, transform=test_transforms)
+
+
+# Device
+SEED = 1
+cuda = torch.cuda.is_available()
+print("CUDA Available?", cuda)
+torch.manual_seed(SEED)
+
+if cuda:
+    torch.cuda.manual_seed(SEED)
+
 
 # Defining Train and Test Loader
-print ("Preparing train and test loader =>")
 dataloader_args = dict(shuffle=True, batch_size=512, num_workers=0, pin_memory=True) if cuda else dict(shuffle=True, batch_size=64)
-train_loader = torch.utils.data.DataLoader(train, **dataloader_args)
-test_loader = torch.utils.data.DataLoader(test, **dataloader_args)
 
-train_losses = []
-test_losses = []
-train_acc = []
-test_acc = []
+# train dataloader
+train_loader = torch.utils.data.DataLoader(train_data, **dataloader_args)
+# test dataloader
+test_loader = torch.utils.data.DataLoader(test_data, **dataloader_args)
 
-test_incorrect_pred = {'images': [], 'ground_truths': [], 'predicted_vals': []}
+# Model Summary 
 
-def GetCorrectPredCount(pPrediction, pLabels):
-  return pPrediction.argmax(dim=1).eq(pLabels).sum().item()
+use_cuda = torch.cuda.is_available()
+device = torch.device("cuda" if use_cuda else "cpu")
+model = ResNet18().to(device)
+print(summary(model, input_size=(3, 32, 32)))
 
-# Train Function
-def train(model, device, train_loader, optimizer, criterion):
-  model.train()
-  pbar = tqdm(train_loader)
-
-  train_loss = 0
-  correct = 0
-  processed = 0
-
-  for batch_idx, (data, target) in enumerate(pbar):
-    data, target = data.to(device), target.to(device)
-    optimizer.zero_grad()
-
-    # Predict
-    pred = model(data)
-
-    # Calculate loss
-    loss = criterion(pred, target)
-    train_loss+=loss.item()
-
-    # Backpropagation
-    loss.backward()
-    optimizer.step()
-    
-    correct += GetCorrectPredCount(pred, target)
-    processed += len(data)
-
-    pbar.set_description(desc= f'Train: Loss={loss.item():0.4f} Batch_id={batch_idx} Accuracy={100*correct/processed:0.2f}')
-
-  train_acc.append(100*correct/processed)
-  train_losses.append(train_loss/len(train_loader))
-
-# Test Function
-def test(model, device, test_loader):
-    model.eval()
-
-    test_loss = 0
-    correct = 0
-
-    with torch.no_grad():
-        for batch_idx, (data, target) in enumerate(test_loader):
-            data, target = data.to(device), target.to(device)
-
-            output = model(data)
-            test_loss += F.cross_entropy(output, target, reduction='sum').item()  # sum up batch loss
-
-            correct += GetCorrectPredCount(output, target)
-
-
-    test_loss /= len(test_loader.dataset)
-    test_acc.append(100. * correct / len(test_loader.dataset))
-    test_losses.append(test_loss)
-
-    print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
-        test_loss, correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)))
-    
-
-
+# Model Training
+EPOCHS=20
+model = ResNet18().to(device)
+optimizer=optim.Adam(model.parameters(),lr=0.03,weight_decay=1e-4)
+criterion = nn.CrossEntropyLoss()
 for epoch in range(EPOCHS):
     print("EPOCH:", epoch)
     train(model, device, train_loader, optimizer, criterion)
     test(model, device, test_loader)
     scheduler.step()
+
+# Plot train/test loss and accuracy
+fig, axs = plt.subplots(2,2, figsize=(20,15))
+
+axs[0,0].set_title('Train Losses')
+axs[1,0].set_title('Test Losses')
+axs[0,0].plot(train_losses)
+axs[1,0].plot(test_losses)
+
+# Plotting wrong predictions
+img_lst,img_tensor,cat_lst = misclassified_image(test_loader,device,model,train_data)
+for i in range(10):
+  plt.subplot(5,2,i+1)
+  plt.tight_layout()
+  plt.imshow(img_lst[i])
+  plt.title(cat_lst[i])
+  plt.xticks([])
+  plt.yticks([])
+
+
+# Plotting grad cam for misclassified images
+for i in range(10):
+  img_req=img_tensor[i].to(device)
+  inv_tensor = invTrans(img_req)
+  inv_tensor_1=inv_tensor.cpu().permute(1, 2, 0).numpy()
+  visualization = show_cam_on_image(inv_tensor_1,grayscale_cam, use_rgb=True)
+  plt.subplot(5,2,i+1)
+  plt.tight_layout()
+  plt.imshow(visualization)
+  plt.title(cat_lst[i])
+  plt.xticks([])
+  plt.yticks([])
