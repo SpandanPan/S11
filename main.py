@@ -39,7 +39,7 @@ model = ResNet18().to(device)
 print(summary(model, input_size=(3, 32, 32)))
 
 # Model Training
-EPOCHS=5
+EPOCHS=20
 model = ResNet18().to(device)
 optimizer=optim.Adam(model.parameters(),lr=0.03,weight_decay=1e-4)
 criterion = nn.CrossEntropyLoss()
